@@ -29,6 +29,11 @@ Dependencies
 - pandas
 - tqdm
 
+Authors:
+--------
+Aurelio A. Moya-García
+Date: February 10, 2025
+
 References
 ----------
 Dong et al. (2024). Allo-Allo: Data-efficient prediction of allosteric sites.
@@ -230,15 +235,15 @@ if __name__ == "__main__":
     # Initialize analyzer
     analyzer = AllosticHeadAnalyzer(threshold=0.3)
     
-    # Analyze single protein
-    results = analyzer.analyze_protein(sequence, allosteric_sites)
-    print("Impact scores shape:", results["impacts"].shape)
-    print("SNR values shape:", results["snrs"].shape)
+    # # Analyze single protein
+    # results = analyzer.analyze_protein(sequence, allosteric_sites)
+    # print("Impact scores shape:", results["impacts"].shape)
+    # print("SNR values shape:", results["snrs"].shape)
     
-    # Analyze multiple proteins
-    sequences = [sequence] * 3  # Example with multiple copies
-    allosteric_sites = [allosteric_sites] * 3
+    # # Analyze multiple proteins
+    # sequences = [sequence] * 3  # Example with multiple copies
+    # allosteric_sites = [allosteric_sites] * 3
     
-    df = analyzer.analyze_dataset(sequences, allosteric_sites)
-    print("\nTop 5 attention heads by SNR:")
-    print(df.nlargest(5, "snr"))
+    # df = analyzer.analyze_dataset(sequences, allosteric_sites)
+    # print("\nTop 5 attention heads by SNR:")
+    # print(df.nlargest(5, "snr"))
