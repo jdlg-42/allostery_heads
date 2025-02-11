@@ -235,10 +235,10 @@ if __name__ == "__main__":
     # Initialize analyzer
     analyzer = AllosticHeadAnalyzer(threshold=0.3)
     
-    # # Analyze single protein
-    # results = analyzer.analyze_protein(sequence, allosteric_sites)
-    # print("Impact scores shape:", results["impacts"].shape)
-    # print("SNR values shape:", results["snrs"].shape)
+    # Analyze single protein
+    results = analyzer.analyze_protein(sequence, allosteric_sites)
+    print("Impact scores shape:", results["impacts"].shape)
+    print("SNR values shape:", results["snrs"].shape)
     
     # # Analyze multiple proteins
     # sequences = [sequence] * 3  # Example with multiple copies

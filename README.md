@@ -64,6 +64,20 @@ Means that everything works with the attributes:
 The `hidden_states` looks particularly promising for our purpose, as in transformer models like ESM-C, this typically contains the intermediate layer representations including attention patterns.
 
 ## Allosteric Sensitivity
+Attention maps in protein language models (PLMs) are matrices that represent the attention scores between different positions in a protein sequence. These scores indicate how much each position in the sequence should influence other positions, allowing the model to focus on specific relationships and patterns within the sequence.
+
+In more detail:
+
+- Attention Mechanism: The attention mechanism in PLMs computes a weighted sum of all positions in the sequence for each position. The weights (attention scores) are determined by the attention mechanism and indicate the importance of each position relative to others.
+
+- Attention Heads: PLMs typically have multiple attention heads in each layer. Each attention head learns to focus on different aspects of the sequence, such as local structural elements or long-range interactions.
+
+- Attention Maps: The attention scores for each head are organized into attention maps, which are tensors of shape [num_layers, num_heads, seq_len, seq_len]. Each element in the attention map represents the attention score between two positions in the sequence.
+
+Attention maps can be used to interpret how the model understands the relationships between different amino acids in the protein sequence. For example, high attention scores between distant positions might indicate long-range interactions that are important for the protein's function.
+
+In the context of the AllosticHeadAnalyzer class, attention maps are used to identify which attention heads are most sensitive to allosteric sites, helping to understand how the model captures allosteric relationships in proteins.
+
 `allosteric_sensitivity.py` Uses the class `AllosticHeadAnalyzer`. It is more convenient to use a class rather than several functions because a class is kind of a blueprint or template that bundles together related data and functions. It's like creating a custom tool that contains everything needed for a specific job. A class has several advantaged over functions:
 - Organization: Classes help keep related code together. In our case, everything related to protein analysis is in one place.
 - Shared Resources: With classes, you can initialize things once and reuse them. Notice how in the functions approach, we need to load the model and tokenizer every time, while in the class approach we do it once and keep using it.
