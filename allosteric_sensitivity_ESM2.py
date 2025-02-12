@@ -67,7 +67,7 @@ class AllosticHeadAnalyzer:
         
         # Get model dimensions - these will be initialized after first run
         self.num_layers = self.model.num_layers
-        self.num_heads = self.model.num_attention_heads
+        self.num_heads = self.model.attention_heads
         
     def get_attention_maps(self, sequence: str) -> torch.Tensor:
         """
@@ -124,13 +124,13 @@ class AllosticHeadAnalyzer:
             
             for head in range(layer_attention.size(1)):
                 attention = layer_attention[:, head]
+                print(f"Attention shape: {attention.shape}")  # Debug print
                 
                 # Calculate w_allo (eq. 1 from paper)
                 w_allo = 0
-                for i in range(attention.size(0)):
-                    for site in allo_sites:
-                        if attention[i, site] > self.threshold:
-                            w_allo += attention[i, site].item()
+                mask = attention > self.threshold
+                for site in allo_sites:
+                    w_allo += torch.sum(attention[:, site][mask[:, site]]).item()    
                 
                 # Calculate total activity w (eq. 2 from paper)
                 w_total = torch.sum(attention > self.threshold).item()
