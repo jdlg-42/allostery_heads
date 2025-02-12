@@ -92,6 +92,68 @@ class AllosticHeadAnalyzer:
         
         return attentions
     
+    # This function is replaced with the new version below
+    def old_compute_allosteric_impact(
+        self,
+        attention_maps: List[torch.Tensor],
+        allosteric_sites: List[int]
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Compute allosteric impact scores for each attention head
+        
+        Args:
+            attention_maps: List of attention tensors from each layer
+            allosteric_sites: List of allosteric site indices (1-based indexing)
+            
+        Returns:
+            Tuple of (allosteric_impacts, snr_values)
+        """
+        # Convert to 0-based indexing
+        allo_sites = [site - 1 for site in allosteric_sites]
+        
+        impacts = []
+        snrs = []
+        
+        # Compute impact for each layer and head
+        for layer_attention in attention_maps:
+            layer_impacts = []
+            layer_snrs = []
+            
+            # Squeeze out batch dimension if present
+            if layer_attention.dim() == 4:
+                layer_attention = layer_attention.squeeze(0)
+            
+            for head in range(layer_attention.size(1)):
+                attention = layer_attention[:, head]
+                # print(f"Attention shape: {attention.shape}")  # Debug print
+                
+                # Calculate w_allo (eq. 1 from paper)
+                w_allo = 0
+                mask = attention > self.threshold
+                for site in allo_sites:
+                    w_allo += torch.sum(attention[:, site][mask[:, site]]).item()    
+                
+                # Calculate total activity w (eq. 2 from paper)
+                w_total = torch.sum(attention > self.threshold).item()
+                
+                # Calculate impact score p (eq. after eq. 2 in paper)
+                # Normalize impact by sequence length factor
+                seq_len = attention_maps[0].size(-1)
+                base_factor = seq_len / len(allosteric_sites)  # Ratio of sequence length to number of sites
+                length_factor = np.log2(base_factor)  # Logarithmic scaling
+    
+                impact = (w_allo / w_total) * length_factor if w_total > 0 else 0
+                layer_impacts.append(impact)
+                layer_snrs.append(impact)
+            
+            impacts.append(layer_impacts)
+            snrs.append(layer_snrs)
+            
+        impacts = torch.tensor(impacts)
+        snrs = torch.tensor(snrs)
+        
+        return impacts, snrs
+    
     def compute_allosteric_impact(
         self,
         attention_maps: List[torch.Tensor],
@@ -124,7 +186,6 @@ class AllosticHeadAnalyzer:
             
             for head in range(layer_attention.size(1)):
                 attention = layer_attention[:, head]
-                print(f"Attention shape: {attention.shape}")  # Debug print
                 
                 # Calculate w_allo (eq. 1 from paper)
                 w_allo = 0
@@ -138,21 +199,18 @@ class AllosticHeadAnalyzer:
                 # Calculate impact score p (eq. after eq. 2 in paper)
                 # Normalize impact by sequence length factor
                 seq_len = attention_maps[0].size(-1)
-                base_factor = seq_len / len(allosteric_sites)  # Ratio of sequence length to number of sites
-                length_factor = np.log2(base_factor)  # Logarithmic scaling
-    
+                base_factor = seq_len / len(allosteric_sites)
+                length_factor = np.log2(base_factor)
+                
                 impact = (w_allo / w_total) * length_factor if w_total > 0 else 0
                 layer_impacts.append(impact)
                 layer_snrs.append(impact)
             
             impacts.append(layer_impacts)
             snrs.append(layer_snrs)
-            
-        impacts = torch.tensor(impacts)
-        snrs = torch.tensor(snrs)
         
-        return impacts, snrs
-    
+        return torch.tensor(impacts), torch.tensor(snrs)
+
     def analyze_protein(
         self,
         sequence: str,
@@ -286,32 +344,32 @@ class AllosticHeadAnalyzer:
         
         return stats    
     
-    # def analyze_distance_effect(self, attention_maps, allosteric_sites, head_idx):
-    #     """Analyze how attention varies with distance from allosteric sites"""
-    #     # Get attention for specific head and reshape if needed
-    #     head_attention = attention_maps[0, head_idx]  # Shape: [seq_len, seq_len]
-    #     if head_attention.dim() > 2:
-    #         head_attention = head_attention.squeeze()  # Remove extra dimensions
+    def analyze_distance_effect(self, attention_maps, allosteric_sites, head_idx):
+        """Analyze how attention varies with distance from allosteric sites"""
+        # Get attention for specific head and reshape if needed
+        head_attention = attention_maps[0, head_idx]  # Shape: [seq_len, seq_len]
+        if head_attention.dim() > 2:
+            head_attention = head_attention.squeeze()  # Remove extra dimensions
         
-    #     distances = {}
+        distances = {}
         
-    #     for site in allosteric_sites:
-    #         # Get attention from all positions to this allosteric site
-    #         site_attention = head_attention[:, site-1]  # 0-based indexing
+        for site in allosteric_sites:
+            # Get attention from all positions to this allosteric site
+            site_attention = head_attention[:, site-1]  # 0-based indexing
             
-    #         # Calculate distances and attention values
-    #         for pos in range(len(site_attention)):
-    #             distance = abs(pos - (site-1))
-    #             # Get mean attention value across all positions
-    #             attention_value = site_attention[pos].mean().cpu().item()
+            # Calculate distances and attention values
+            for pos in range(len(site_attention)):
+                distance = abs(pos - (site-1))
+                # Get mean attention value across all positions
+                attention_value = site_attention[pos].mean().cpu().item()
                 
-    #             if distance not in distances:
-    #                 distances[distance] = []
-    #             distances[distance].append(attention_value)
+                if distance not in distances:
+                    distances[distance] = []
+                distances[distance].append(attention_value)
         
-    #     # Average attention by distance
-    #     avg_attention = {d: np.mean(v) for d, v in distances.items()}
-    #     return avg_attention
+        # Average attention by distance
+        avg_attention = {d: np.mean(v) for d, v in distances.items()}
+        return avg_attention
 
 
     def calculate_allosteric_attention_scores(self, sequence: str, allosteric_sites: List[int], sensitive_heads: List[int]) -> Dict[int, float]:
@@ -356,20 +414,21 @@ class AllosticHeadAnalyzer:
         """
         Analyze attention patterns in windows around allosteric sites.
         Returns head scores based on attention to allosteric regions.
-        
-        Args:
-            attention_maps: Attention tensors from model
-            allosteric_sites: List of allosteric site positions (1-based)
-            window_size: Size of window around each site (default: 5)
-            
-        Returns:
-            Dictionary mapping head indices to window-based attention scores
         """
         head_scores = {}
         
+        print(f"\nDebug - Attention maps shape: {attention_maps.shape}")
+        
+        # Reshape attention maps if needed
+        if attention_maps.dim() == 5:  # [1, 33, 20, 318, 318]
+            attention_maps = attention_maps.squeeze(0)  # Now [33, 20, 318, 318]
         
         for head in range(self.num_heads):
-            head_attention = attention_maps[0, head]
+            # Get the correct attention matrix for this head
+            head_attention = attention_maps[0, head]  # Get first layer, specific head
+            print(f"\nDebug - Head {head} attention shape: {head_attention.shape}")
+            print(f"Debug - Head {head} attention range: [{head_attention.min().item():.6f}, {head_attention.max().item():.6f}]")
+            
             total_score = 0
             valid_sites = 0
             
@@ -379,11 +438,20 @@ class AllosticHeadAnalyzer:
                 start = max(0, site_idx - window_size)
                 end = min(head_attention.shape[0], site_idx + window_size + 1)
                 
-                # Get average attention in window
-                window_attention = head_attention[start:end, start:end]
-                if window_attention.numel() > 0:  # Check if window is not empty
-                    window_score = window_attention.mean().item()
-                    if not np.isnan(window_score):  # Check for NaN
+                if end > start:
+                    # Get window attention and apply threshold
+                    window_attention = head_attention[start:end, start:end]
+                    mask = window_attention > self.threshold
+                    filtered_attention = window_attention[mask]
+                    
+                    print(f"Debug - Site {site}:")
+                    print(f"Window shape: {window_attention.shape}")
+                    print(f"Window boundaries: [{start}, {end}]")
+                    print(f"Values above threshold: {filtered_attention.numel()}")
+                    
+                    if filtered_attention.numel() > 0:
+                        window_score = filtered_attention.mean().item()
+                        print(f"Window score: {window_score:.6f}")
                         total_score += window_score
                         valid_sites += 1
             
@@ -392,8 +460,11 @@ class AllosticHeadAnalyzer:
                 head_scores[head] = total_score / valid_sites
             else:
                 head_scores[head] = 0.0
+            
+            print(f"Debug - Head {head} final score: {head_scores[head]:.6f}")
         
         return head_scores
+
 
 
 # Example usage:
@@ -433,17 +504,17 @@ if __name__ == "__main__":
 
 
 
-     # Analyze sequence length effect
-    stats = analyzer.analyze_sequence_length_effect(sequence, allosteric_sites)
+    #  # Analyze sequence length effect
+    # stats = analyzer.analyze_sequence_length_effect(sequence, allosteric_sites)
     
-    print("\nSequence Length Analysis:")
-    print(f"Sequence length: {stats['sequence_length']}")
-    print(f"Number of allosteric sites: {stats['num_allosteric_sites']}")
-    print(f"Ratio of sites to length: {stats['sites_ratio']:.3f}")
-    print(f"Expected random attention: {stats['expected_random_attention']:.3f}")
-    print(f"Mean attention to allosteric sites: {stats['mean_attention_allosteric']:.3f}")
-    print(f"Mean attention to non-allosteric sites: {stats['mean_attention_non_allosteric']:.3f}")
-    print(f"Attention ratio (allosteric/non-allosteric): {stats['attention_ratio']:.3f}")
+    # print("\nSequence Length Analysis:")
+    # print(f"Sequence length: {stats['sequence_length']}")
+    # print(f"Number of allosteric sites: {stats['num_allosteric_sites']}")
+    # print(f"Ratio of sites to length: {stats['sites_ratio']:.3f}")
+    # print(f"Expected random attention: {stats['expected_random_attention']:.3f}")
+    # print(f"Mean attention to allosteric sites: {stats['mean_attention_allosteric']:.3f}")
+    # print(f"Mean attention to non-allosteric sites: {stats['mean_attention_non_allosteric']:.3f}")
+    # print(f"Attention ratio (allosteric/non-allosteric): {stats['attention_ratio']:.3f}")
 
 
     
@@ -549,38 +620,38 @@ if __name__ == "__main__":
 
 
 
-    # Get attention maps for window analysis
-    attention_maps = analyzer.get_attention_maps(sequence)
+    # # Get attention maps for window analysis
+    # attention_maps = analyzer.get_attention_maps(sequence)
     
-    # Analyze windows around allosteric sites
-    window_scores = analyzer.analyze_window_scores(attention_maps, allosteric_sites, window_size=5)
+    # # Analyze windows around allosteric sites
+    # window_scores = analyzer.analyze_window_scores(attention_maps, allosteric_sites, window_size=5)
     
-    # Print window analysis results
-    print("\nWindow Analysis Results:")
-    print("Head | Window Score | Visualization")
-    print("-" * 50)
+    # # Print window analysis results
+    # print("\nWindow Analysis Results:")
+    # print("Head | Window Score | Visualization")
+    # print("-" * 50)
     
-    # Sort heads by window score
-    sorted_heads = sorted(window_scores.items(), key=lambda x: x[1], reverse=True)
-    for head, score in sorted_heads:
-        # Handle potential NaN or very small values
-        bar_length = max(0, int(score * 1000)) if not np.isnan(score) else 0
-        bar = "█" * bar_length
-        print(f"{head:4d} | {score:9.6f} | {bar}")
+    # # Sort heads by window score
+    # sorted_heads = sorted(window_scores.items(), key=lambda x: x[1], reverse=True)
+    # for head, score in sorted_heads:
+    #     # Handle potential NaN or very small values
+    #     bar_length = max(0, int(score * 1000)) if not np.isnan(score) else 0
+    #     bar = "█" * bar_length
+    #     print(f"{head:4d} | {score:9.6f} | {bar}")
     
-    # Identify sensitive heads (above mean)
-    mean_window_score = sum(window_scores.values()) / len(window_scores)
-    sensitive_heads_window = [head for head, score in window_scores.items() 
-                            if score > mean_window_score]
+    # # Identify sensitive heads (above mean)
+    # mean_window_score = sum(window_scores.values()) / len(window_scores)
+    # sensitive_heads_window = [head for head, score in window_scores.items() 
+    #                         if score > mean_window_score]
     
-    print(f"\nMost sensitive heads (window analysis):")
-    print(f"Head indices: {sensitive_heads_window}")
+    # print(f"\nMost sensitive heads (window analysis):")
+    # print(f"Head indices: {sensitive_heads_window}")
     
-    # Compare with previous method
-    print("\nComparison of methods:")
-    print(f"Original method sensitive heads: {sensitive_heads}")
-    print(f"Window method sensitive heads: {sensitive_heads_window}")
-    print(f"Heads identified by both methods: {set(sensitive_heads) & set(sensitive_heads_window)}")
+    # # Compare with previous method
+    # print("\nComparison of methods:")
+    # print(f"Original method sensitive heads: {sensitive_heads}")
+    # print(f"Window method sensitive heads: {sensitive_heads_window}")
+    # print(f"Heads identified by both methods: {set(sensitive_heads) & set(sensitive_heads_window)}")
 
 
    
