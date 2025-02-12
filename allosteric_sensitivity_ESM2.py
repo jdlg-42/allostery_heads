@@ -223,11 +223,38 @@ if __name__ == "__main__":
     # Initialize analyzer
     analyzer = AllosticHeadAnalyzer(threshold=0.3)
     
-    # Analyze single protein
-    results = analyzer.analyze_protein(sequence, allosteric_sites)
-    print("Impact scores shape:", results["impacts"].shape)
-    print("SNR values shape:", results["snrs"].shape)
+    # # Analyze single protein
+    # results = analyzer.analyze_protein(sequence, allosteric_sites)
+    # print("Impact scores shape:", results["impacts"].shape)
+    # print("SNR values shape:", results["snrs"].shape)
     
+   # Analyze single protein
+    results = analyzer.analyze_protein(sequence, allosteric_sites)
+    
+    # Get scores for each head
+    impact_scores = results["impacts"].squeeze().tolist()
+    
+    print("\nAllosteric sensitivity scores per attention head:")
+    for head_idx, score in enumerate(impact_scores):
+        print(f"Head {head_idx}: {score:.3f}")
+    
+    # Identify most sensitive heads (above mean)
+    mean_score = sum(impact_scores) / len(impact_scores)
+    sensitive_heads = [i for i, score in enumerate(impact_scores) if score > mean_score]
+    
+    print(f"\nMost sensitive heads to allosteric sites {allosteric_sites}:")
+    print(f"Head indices: {sensitive_heads}")
+   
+# The code is calculating how much each head "pays attention" to your specified allosteric sites (positions 10, 15, and 20)
+# Higher scores (closer to 1.0): The head pays more attention to the allosteric sites
+# Lower scores (closer to 0.0): The head pays less attention to the allosteric sites
+# I guess I can get the actual attention values for each head that has a high score. Each attention value should correspond to an amino acid in the sequence, so I can see which amino acids are most important for the head's decision.
+   
+   
+   
+   
+   
+   
     # # Analyze multiple proteins
     # sequences = [sequence] * 3  # Example with multiple copies
     # allosteric_sites = [allosteric_sites] * 3
