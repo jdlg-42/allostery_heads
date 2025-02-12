@@ -217,8 +217,12 @@ class AllosticHeadAnalyzer:
 # Example usage:
 if __name__ == "__main__":
     # Example sequence and allosteric sites
-    sequence = "MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG"
-    allosteric_sites = [10, 15, 20]  # 1-based indices of allosteric sites
+    # sequence = "MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG"
+    # allosteric_sites = [10, 15, 20]  # 1-based indices of allosteric sites
+
+    # Adenosine A2A receptor 3VG9
+    sequence = "MPIMGSSVYITVELAIAVLAILGNVLVCWAVWLNSNLQNVTNYFVVSLAAADIAVGVLAIPFAITISTGFCAACHGCLFIACFVLVLTQSSIFSLLAIAIDRYIAIRIPLRYNGLVTGTRAKGIIAICWVLSFAIGLTPMLGWNNCGQPKEGKQHSQGCGEGQVACLFEDVVPMNYMVYFNFFACVLVPLLLMLGVYLRIFLAARRQLKQMESQPLPGERARSTLQKEVHAAKSLAIIVGLFALCWLPLHIINCFTFFCPDCSHAPLWLMYLAIVLSHTNSVVNPFIYAYRIREFRQTFRKIIRSHVLRQQEPFKA"
+    allosteric_sites = [85, 89, 246, 253]
     
     # Initialize analyzer
     analyzer = AllosticHeadAnalyzer(threshold=0.3)
@@ -250,7 +254,36 @@ if __name__ == "__main__":
 # Lower scores (closer to 0.0): The head pays less attention to the allosteric sites
 # I guess I can get the actual attention values for each head that has a high score. Each attention value should correspond to an amino acid in the sequence, so I can see which amino acids are most important for the head's decision.
    
-   
+# We can look at the actual attentio paterns for the most sensitive heads
+# 1. Look at the actual attention patterns
+
+
+# attention_maps = analyzer.get_attention_maps(sequence)
+# for head in sensitive_heads:
+#     head_attention = attention_maps[0, head]
+#     print(f"\nHead {head} attention analysis:")
+    
+#     # For each allosteric site
+#     for site, pos in zip([10, 15, 20], [9, 14, 19]):  # Convert to 0-based indexing
+#         # Get attention scores for this site
+#         site_attention = head_attention[:, pos]
+        
+#         # Find top 5 positions attending to this site
+#         top_values, top_indices = torch.topk(site_attention, 5)
+        
+#         print(f"\nSite {site} analysis:")
+#         print(f"Max attention: {site_attention.max().item():.3f}")
+#         print("Top 5 attending positions:")
+        
+#         # Convert tensors to numpy arrays and iterate
+#         indices = top_indices.cpu().numpy()
+#         values = top_values.cpu().numpy()
+        
+#         for idx, value in zip(indices.flatten(), values.flatten()):
+#             residue = sequence[idx] if idx < len(sequence) else "N/A"
+#             print(f"Position {idx+1}: {value.item():.3f} (residue: {residue})")
+
+
    
    
    
