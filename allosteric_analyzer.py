@@ -73,6 +73,10 @@ import numpy as np
 from typing import List, Dict, Tuple
 import pandas as pd
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+from typing import List
 
 class AllosticHeadAnalyzer:
     def __init__(self, threshold: float = 0.3, model_name: str = "esm2_t33_650M_UR50D"):
@@ -554,4 +558,88 @@ class AllosticHeadAnalyzer:
             print(f"Debug - Head {head} final score: {head_scores[head]:.6f}")
         
         return head_scores
+    
 
+    def visualize_head_attention(self, head_idx: int, attention_maps: torch.Tensor, 
+                               allosteric_sites: List[int], sequence: str) -> None:
+        """
+        Visualize attention patterns for a specific head
+        
+        Args:
+            head_idx: Index of the attention head to visualize
+            attention_maps: Attention maps from the model
+            allosteric_sites: List of allosteric site positions (1-based indexing)
+            sequence: Protein sequence
+        
+        Errors. Does not work. Needs to be fixed.
+        """
+        # Get attention map for specific head and ensure it's 2D
+        if attention_maps.dim() == 4:  # [batch, num_heads, seq_len, seq_len]
+            attention = attention_maps[0, head_idx]
+        elif attention_maps.dim() == 3:  # [num_heads, seq_len, seq_len]
+            attention = attention_maps[head_idx]
+        else:
+            raise ValueError(f"Unexpected attention map shape: {attention_maps.shape}")
+        
+        # Convert to numpy array
+        attention_2d = attention.cpu().numpy()
+        
+        # Create figure
+        plt.figure(figsize=(12, 10))
+        
+        # Plot heatmap
+        sns.heatmap(attention_2d, 
+                    cmap='viridis',
+                    xticklabels=50,  # Show every 50th position
+                    yticklabels=50)
+        
+        # Highlight allosteric sites
+        for site in allosteric_sites:
+            plt.axhline(y=site-1, color='r', alpha=0.3)
+            plt.axvline(x=site-1, color='r', alpha=0.3)
+        
+        plt.title(f'Attention Map - Head {head_idx}')
+        plt.xlabel('Position j (attended to)')
+        plt.ylabel('Position i (attending from)')
+        plt.show()
+
+    def analyze_head_connections(self, head_idx: int, attention_maps: torch.Tensor, 
+                               sequence: str) -> None:
+        """
+        Analyze top attention connections for a head
+        
+        Args:
+            head_idx: Index of the attention head to analyze
+            attention_maps: Attention maps from the model [batch, layers, heads, seq_len, seq_len]
+            sequence: Protein sequence
+
+        Results in meaningless self- connections output. Needs to be fixed.       
+        """
+        # Get attention map for specific head (from first layer and first batch)
+        attention = attention_maps[0, 0, head_idx]  # Shape: [seq_len, seq_len]
+        
+        print(f"\nHead {head_idx} - Top attention connections:")
+        print("From\tTo\tScore\tAA_From->AA_To")
+        print("-" * 45)
+        
+        # Get top attention scores
+        values, indices = attention.view(-1).sort(descending=True)
+        seq_len = len(sequence)
+        count = 0
+        i = 0
+        
+        # Print top 10 connections with scores above threshold
+        while count < 10 and i < len(values):
+            score = values[i].item()
+            if score > self.threshold:
+                # Calculate positions
+                from_pos = (indices[i].item() // attention.size(1))
+                to_pos = (indices[i].item() % attention.size(1))
+                
+                # Check if indices are within sequence bounds
+                if 0 <= from_pos < seq_len and 0 <= to_pos < seq_len:
+                    aa_from = sequence[from_pos]
+                    aa_to = sequence[to_pos]
+                    print(f"{from_pos+1}\t{to_pos+1}\t{score:.3f}\t{aa_from}->{aa_to}")
+                    count += 1
+            i += 1

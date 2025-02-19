@@ -100,5 +100,16 @@ def main():
     print(f"(Impact > {mean_impact:.3f} and SNR > 2.0)")
     print(f"Head indices: {sensitive_heads}")
 
+    print("\nAnalyzing attention patterns for sensitive heads...")
+    
+    # Get attention maps
+    attention_maps = analyzer.get_attention_maps(sequence)
+    
+    # # Visualize and analyze each sensitive head
+    # for head_idx in sensitive_heads:
+    #     analyzer.visualize_head_attention(head_idx, attention_maps, allosteric_sites, sequence)
+    #     analyzer.analyze_head_connections(head_idx, attention_maps, sequence)
+
+
 if __name__ == "__main__":
     main()
