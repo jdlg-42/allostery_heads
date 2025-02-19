@@ -63,8 +63,8 @@ Aurelio A. Moya-García
 Date: February 18, 2025
 """
 
-
-
+import os
+import torch
 from allosteric_analyzer import AllosticHeadAnalyzer
 
 def main():
@@ -100,7 +100,7 @@ def main():
     print(f"(Impact > {mean_impact:.3f} and SNR > 2.0)")
     print(f"Head indices: {sensitive_heads}")
 
-    print("\nAnalyzing attention patterns for sensitive heads...")
+    # print("\nAnalyzing attention patterns for sensitive heads...")
     
     # Get attention maps
     attention_maps = analyzer.get_attention_maps(sequence)
@@ -109,7 +109,24 @@ def main():
     # for head_idx in sensitive_heads:
     #     analyzer.visualize_head_attention(head_idx, attention_maps, allosteric_sites, sequence)
     #     analyzer.analyze_head_connections(head_idx, attention_maps, sequence)
-
+# 
+#   Save attention maps for sensitive heads
+    output_dir = "attention_data"
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Save sensitive head indices and their scores
+    head_info = {
+        'head_indices': sensitive_heads,
+        'impact_scores': [impact_scores[i] for i in sensitive_heads],
+        'snr_values': [snr_values[i] for i in sensitive_heads]
+    }
+    torch.save(head_info, os.path.join(output_dir, 'sensitive_heads.pt'))
+    
+    # Save attention maps for sensitive heads
+    sensitive_attention = attention_maps[0, 0, sensitive_heads]  # [num_sensitive_heads, seq_len, seq_len]
+    torch.save(sensitive_attention, os.path.join(output_dir, 'sensitive_attention_maps.pt'))
+    
+    print(f"Saved sensitive head information and attention maps to {output_dir}/")
 
 if __name__ == "__main__":
     main()
