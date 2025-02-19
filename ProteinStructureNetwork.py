@@ -2,6 +2,7 @@ from Bio import PDB
 import networkx as nx
 import numpy as np
 from typing import Dict, List, Tuple
+import torch
 
 class ProteinStructureNetwork:
     """
