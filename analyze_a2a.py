@@ -78,18 +78,26 @@ def main():
     # Basic analysis
     results = analyzer.analyze_protein(sequence, allosteric_sites)
     
-    # Get scores for each head
+    # Get both impact scores and SNR values
     impact_scores = results["impacts"].squeeze().tolist()
+    snr_values = results["snrs"].squeeze().tolist()
     
-    print("\nAllosteric sensitivity scores per attention head:")
-    for head_idx, score in enumerate(impact_scores):
-        print(f"Head {head_idx}: {score:.3f}")
+    print("\nAllosteric sensitivity analysis per attention head:")
+    print("Head | Impact Score | SNR")
+    print("-" * 35)
+    for head_idx in range(len(impact_scores)):
+        print(f"{head_idx:4d} | {impact_scores[head_idx]:11.3f} | {snr_values[head_idx]:6.2f}")
     
-    # Identify most sensitive heads
-    mean_score = sum(impact_scores) / len(impact_scores)
-    sensitive_heads = [i for i, score in enumerate(impact_scores) if score > mean_score]
+    # Calculate means
+    mean_impact = sum(impact_scores) / len(impact_scores)
+    mean_snr = sum(snr_values) / len(snr_values)
+    
+    # Identify heads that are significant by both metrics
+    sensitive_heads = [i for i, (impact, snr) in enumerate(zip(impact_scores, snr_values)) 
+                      if impact > mean_impact and snr > 2.0]  # SNR > 2 is statistically significant
     
     print(f"\nMost sensitive heads to allosteric sites {allosteric_sites}:")
+    print(f"(Impact > {mean_impact:.3f} and SNR > 2.0)")
     print(f"Head indices: {sensitive_heads}")
 
 if __name__ == "__main__":

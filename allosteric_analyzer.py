@@ -181,13 +181,13 @@ class AllosticHeadAnalyzer:
         
         return impacts, snrs
     
-    def compute_allosteric_impact(
+    def seq_normal_compute_allosteric_impact(
         self,
         attention_maps: List[torch.Tensor],
         allosteric_sites: List[int]
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Compute allosteric impact scores for each attention head
+        Compute allosteric impact scores for each attention head. Sequence length normalization.
         
         Args:
             attention_maps: List of attention tensors from each layer
@@ -238,6 +238,69 @@ class AllosticHeadAnalyzer:
         
         return torch.tensor(impacts), torch.tensor(snrs)
 
+    def compute_allosteric_impact(self, attention_maps: List[torch.Tensor], allosteric_sites: List[int], n_random_trials: int = 1000) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Compute allosteric impact scores with proper random baseline, excluding allosteric sites from random selection
+        
+        Args:
+            attention_maps: List of attention tensors from each layer
+            allosteric_sites: List of allosteric site indices (1-based indexing)
+            n_random_trials: Number of random samples to generate baseline
+            
+        Returns:
+            Tuple of (allosteric_impacts, snr_values)
+        """
+        allo_sites = [site - 1 for site in allosteric_sites]
+        n_allo_sites = len(allo_sites)
+        impacts = []
+        snrs = []
+        
+        for layer_attention in attention_maps:
+            layer_impacts = []
+            layer_snrs = []
+            
+            if layer_attention.dim() == 4:
+                layer_attention = layer_attention.squeeze(0)
+            
+            for head in range(layer_attention.size(1)):
+                attention = layer_attention[:, head]
+                mask = attention > self.threshold
+                seq_len = attention.size(0)
+                
+                # Calculate actual attention to allosteric sites
+                w_allo = 0
+                for site in allo_sites:
+                    w_allo += torch.sum(attention[:, site][mask[:, site]]).item()
+                
+                # Create array of non-allosteric positions for random sampling
+                non_allo_positions = np.array([i for i in range(seq_len) if i not in allo_sites])
+                
+                # Calculate random baseline with same number of sites
+                random_w_values = []
+                for _ in range(n_random_trials):
+                    # Sample from non-allosteric positions only
+                    random_sites = np.random.choice(non_allo_positions, size=n_allo_sites, replace=False)
+                    random_w = 0
+                    for site in random_sites:
+                        random_w += torch.sum(attention[:, site][mask[:, site]]).item()
+                    random_w_values.append(random_w)
+                
+                # Calculate mean and std of random baseline
+                expected_random = np.mean(random_w_values)
+                random_std = np.std(random_w_values)
+                
+                # Calculate impact and SNR
+                impact = w_allo / expected_random if expected_random > 0 else 0
+                snr = (w_allo - expected_random) / (random_std + 1e-10)
+                
+                layer_impacts.append(impact)
+                layer_snrs.append(snr)
+                
+            impacts.append(layer_impacts)
+            snrs.append(layer_snrs)
+        
+        return torch.tensor(impacts), torch.tensor(snrs)
+    
     def analyze_protein(
         self,
         sequence: str,
