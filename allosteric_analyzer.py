@@ -119,7 +119,11 @@ class AllosticHeadAnalyzer:
         with torch.no_grad():
             results = self.model(batch_tokens, repr_layers=[self.num_layers], return_contacts=True)
         
+        # Debug print statements
+        print(f"Results keys: {results.keys()}")
         attentions = results["attentions"]
+        print(f"Attentions type: {type(attentions)}")
+        print(f"Attentions shape: {attentions.shape}")
         
         return attentions
     
@@ -560,43 +564,63 @@ class AllosticHeadAnalyzer:
         return head_scores
     
 
-    def visualize_head_attention(self, head_idx: int, attention_maps: torch.Tensor, 
-                               allosteric_sites: List[int], sequence: str) -> None:
+    def visualize_head_attention(self, attention_maps: torch.Tensor, allosteric_sites: List[int], head_idx: int, 
+                                 sequence: str, layer_idx: int = 0) -> None:
         """
         Visualize attention patterns for a specific head
         
         Args:
             head_idx: Index of the attention head to visualize
+            layer_idx: Index of the layer to visualize (default: 0)
             attention_maps: Attention maps from the model
             allosteric_sites: List of allosteric site positions (1-based indexing)
             sequence: Protein sequence
         
         Errors. Does not work. Needs to be fixed.
         """
-        # Get attention map for specific head and ensure it's 2D
-        if attention_maps.dim() == 4:  # [batch, num_heads, seq_len, seq_len]
-            attention = attention_maps[0, head_idx]
-        elif attention_maps.dim() == 3:  # [num_heads, seq_len, seq_len]
-            attention = attention_maps[head_idx]
-        else:
+
+        # Check if attention_maps is 5D
+        if attention_maps.dim() == 5:  # [batch, num_layers, num_heads, seq_len, seq_len]
+            # Select the first batch and the specified layer
+            attention_maps = attention_maps[0, layer_idx]  # Now [num_heads, seq_len, seq_len]
+        elif attention_maps.dim() == 4:  # [batch, num_heads, seq_len, seq_len]
+            # Select the first batch
+            attention_maps = attention_maps[0]  # Now [num_heads, seq_len, seq_len]
+        elif attention_maps.dim() != 3:  # [num_heads, seq_len, seq_len]
             raise ValueError(f"Unexpected attention map shape: {attention_maps.shape}")
+
+        # Validate head_idx
+        num_heads = attention_maps.shape[0]
+        if head_idx < 0 or head_idx >= num_heads:
+            raise ValueError(f"head_idx {head_idx} is out of range (0 to {num_heads-1})")
+    
+        # Obtain attention map for specific head
+        attention = attention_maps[head_idx]  # [seq_len, seq_len]
         
-        # Convert to numpy array
-        attention_2d = attention.cpu().numpy()
-        
+        # Convert to a numpy array and squeeze out batch dimension if present
+        attention_2d = attention.cpu().numpy().squeeze()
+
+        # Debug print statements
+        print(f"Attention map shape: {attention_2d.shape}")
+        print(f"Head index: {head_idx}")
+        print(f"Allosteric sites: {allosteric_sites}")
+
         # Create figure
         plt.figure(figsize=(12, 10))
         
-        # Plot heatmap
-        sns.heatmap(attention_2d, 
-                    cmap='viridis',
-                    xticklabels=50,  # Show every 50th position
-                    yticklabels=50)
+        # Create a heatmap of the attention map.
+            ## Use a dynamic tick spacing to avoid crowding in short sequences
+        seq_len = attention_2d.shape[0]
+        tick_spacing = max(1, seq_len // 50) # Dynamic tick spacing
+        sns.heatmap(attention_2d, cmap='viridis', xticklabels=tick_spacing, yticklabels=tick_spacing)
         
         # Highlight allosteric sites
         for site in allosteric_sites:
-            plt.axhline(y=site-1, color='r', alpha=0.3)
-            plt.axvline(x=site-1, color='r', alpha=0.3)
+            if 1 <= site <= seq_len:  # Asegura que el sitio está dentro del rango
+                plt.axhline(y=site-1, color='r', alpha=0.3, linestyle='--')
+                plt.axvline(x=site-1, color='r', alpha=0.3, linestyle='--')
+            else:
+                print(f"Warning: Allosteric site {site} is out of range (1 to {seq_len})")
         
         plt.title(f'Attention Map - Head {head_idx}')
         plt.xlabel('Position j (attended to)')

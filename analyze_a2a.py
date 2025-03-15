@@ -105,10 +105,10 @@ def main():
     # Get attention maps
     attention_maps = analyzer.get_attention_maps(sequence)
     
-    # # Visualize and analyze each sensitive head
-    # for head_idx in sensitive_heads:
-    #     analyzer.visualize_head_attention(head_idx, attention_maps, allosteric_sites, sequence)
-    #     analyzer.analyze_head_connections(head_idx, attention_maps, sequence)
+    # Visualize and analyze each sensitive head
+    for head_idx in sensitive_heads:
+        analyzer.visualize_head_attention(head_idx, attention_maps, allosteric_sites, sequence)
+        analyzer.analyze_head_connections(head_idx, attention_maps, sequence)
 # 
 #   Save attention maps for sensitive heads
     output_dir = "attention_data"
@@ -130,3 +130,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
