@@ -107,7 +107,12 @@ def main():
     
     # Visualize and analyze each sensitive head
     for head_idx in sensitive_heads:
-        analyzer.visualize_head_attention(head_idx, attention_maps, allosteric_sites, sequence)
+        analyzer.visualize_head_attention(
+                attention_maps=attention_maps,
+                allosteric_sites=allosteric_sites,
+                head_idx=head_idx,
+                sequence=sequence
+)
         analyzer.analyze_head_connections(head_idx, attention_maps, sequence)
 # 
 #   Save attention maps for sensitive heads
