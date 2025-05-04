@@ -564,8 +564,8 @@ class AllosticHeadAnalyzer:
         return head_scores
     
 
-    def visualize_head_attention(self, attention_maps: torch.Tensor, allosteric_sites: List[int], pathway_sites: List[int], 
-                                 head_idx: int, sequence: str, layer_idx: int = 0) -> None:
+    def visualize_head_attention(self, attention_maps: torch.Tensor, allosteric_sites: List[int], orthosteric_sites: List[int],
+                                 pathway_sites: List[int], head_idx: int, sequence: str, layer_idx: int = 0) -> None:
         """
         Visualize attention patterns for a specific head
         
@@ -574,6 +574,7 @@ class AllosticHeadAnalyzer:
             layer_idx: Index of the layer to visualize (default: 0)
             attention_maps: Attention maps from the model
             allosteric_sites: List of allosteric site positions (1-based indexing)
+            orthosteric_sites: List of residues that form part of the site for the orthosteric ligand
             pathway_sites: List of pathway site positions (1-based indexing) obtained through a PNC analysis
             sequence: Protein sequence
         """
@@ -603,6 +604,7 @@ class AllosticHeadAnalyzer:
         print(f"Attention map shape: {attention_2d.shape}")
         print(f"Head index: {head_idx}")
         print(f"Allosteric sites: {allosteric_sites}")
+        print(f"Orthosteric sites: {orthosteric_sites}")
         print(f"Pathway sites: {pathway_sites}")
 
         # Create figure
@@ -614,7 +616,7 @@ class AllosticHeadAnalyzer:
         tick_spacing = max(1, seq_len // 50) # Dynamic tick spacing
 
         default_ticks = set(i + 1 for i in range(seq_len) if i % tick_spacing == 0)
-        highlight_ticks = default_ticks.union(allosteric_sites).union(pathway_sites)
+        highlight_ticks = default_ticks.union(allosteric_sites).union(orthosteric_sites).union(pathway_sites)
         xticks = [str(i) if i in highlight_ticks else '' for i in range(1, seq_len + 1)]
         yticks = [str(i) if i in highlight_ticks else '' for i in range(1, seq_len + 1)]
 
@@ -636,6 +638,16 @@ class AllosticHeadAnalyzer:
         # Rotar y resaltar etiquetas de ejes
         ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
 
+        # Highlight orthosteric sites
+        for site in orthosteric_sites:
+            if 1 <= site <= seq_len:  # Asegura que el sitio está dentro del rango
+                plt.axhline(y=site-0.5, color='lime', alpha=0.3, linestyle='--')
+                plt.axvline(x=site-0.5, color='lime', alpha=0.3, linestyle='--')
+            else:
+                print(f"Warning: Orthosteric site {site} is out of range (1 to {seq_len})")
+        # Rotar y resaltar etiquetas de ejes
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
+
         # Líneas para sitios del pathway alostérico en amarillo
         for site in pathway_sites:
             if 1 <= site <= seq_len:
@@ -650,9 +662,13 @@ class AllosticHeadAnalyzer:
                 if val in allosteric_sites:
                     label.set_color('red')
                     label.set_fontweight('bold')
+                elif val in orthosteric_sites:
+                    label.set_color('lime')
+                    label.set_fontweight('bold')    
                 elif val in pathway_sites:
                     label.set_color('goldenrod')
                     label.set_fontweight('bold')
+                
             except ValueError:
                 continue
 
@@ -662,6 +678,9 @@ class AllosticHeadAnalyzer:
                 if val in allosteric_sites:
                     label.set_color('red')
                     label.set_fontweight('bold')
+                elif val in orthosteric_sites:
+                    label.set_color('green')
+                    label.set_fontweight('bold')  
                 elif val in pathway_sites:
                     label.set_color('goldenrod')
                     label.set_fontweight('bold')

@@ -71,7 +71,8 @@ def main():
     # Adenosine A2A receptor 3VG9
     sequence = "MPIMGSSVYITVELAIAVLAILGNVLVCWAVWLNSNLQNVTNYFVVSAAAADILVGVLAIPFAIAISTGFCAACHGCLFIACFVLVLTASSIFSLLAIAIDRYIAIRIPLRYNGLVTGTRAKGIIAICWVLSFAIGLTPMLGWNNCGQPKEGKAHSQGCGEGQVACLFEDVVPMNYMVYFNFFACVLVPLLLMLGVYLRIFLAARRQLKQMESQPLPGERARSTLQKEVHAAKSLAIIVGLFALCWLPLHIINCFTFFCPDCSHAPLWLMYLAIVLSHTNSVVNPFIYAYRIREFRQTFRKIIRSHVLRQQEPFKAAAAENLYFQ"
     allosteric_sites = [168, 169, 253, 277, 278]
-    pathway_sites = [229, 257] # Pathway sites for analysis predicted with a Protein Contact Network.
+    orthosteric_sites = [102, 110, 227, 231, 235] # Orthosteric sites for analysis predicted with a Protein Contact Network.
+    pathway_sites = [171, 229, 234, 237, 257] # Pathway sites for analysis predicted with a Protein Contact Network.
     
     # Initialize analyzer
     analyzer = AllosticHeadAnalyzer(threshold=0.3)
@@ -111,6 +112,7 @@ def main():
         analyzer.visualize_head_attention(
                 attention_maps=attention_maps,
                 allosteric_sites=allosteric_sites,
+                orthosteric_sites=orthosteric_sites,
                 pathway_sites=pathway_sites,
                 head_idx=head_idx,
                 sequence=sequence
