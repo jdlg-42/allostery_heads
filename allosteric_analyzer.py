@@ -89,7 +89,7 @@ class AllosticHeadAnalyzer:
         """
         # Set up device for M1 Mac (MPS) or fallback to CPU
         self.device = "mps" if torch.backends.mps.is_available() else "cpu"
-        print(f"Using device: {self.device}")
+        #print(f"Using device: {self.device}")
         
         # Initialize ESM2 model
         self.model, self.alphabet = pretrained.load_model_and_alphabet(model_name)
@@ -119,12 +119,7 @@ class AllosticHeadAnalyzer:
         with torch.no_grad():
             results = self.model(batch_tokens, repr_layers=[self.num_layers], return_contacts=True)
         
-        # Debug print statements
-        print(f"Results keys: {results.keys()}")
         attentions = results["attentions"]
-        print(f"Attentions type: {type(attentions)}")
-        print(f"Attentions shape: {attentions.shape}")
-        
         return attentions
     
     # This function is replaced with the new version below
@@ -601,11 +596,11 @@ class AllosticHeadAnalyzer:
         attention_2d = attention.cpu().numpy().squeeze()
 
         # Debug print statements
-        print(f"Attention map shape: {attention_2d.shape}")
-        print(f"Head index: {head_idx}")
-        print(f"Allosteric sites: {allosteric_sites}")
-        print(f"Orthosteric sites: {orthosteric_sites}")
-        print(f"Pathway sites: {pathway_sites}")
+        #print(f"Attention map shape: {attention_2d.shape}")
+        #print(f"Head index: {head_idx}")
+        #print(f"Allosteric sites: {allosteric_sites}")
+        #print(f"Orthosteric sites: {orthosteric_sites}")
+        #print(f"Pathway sites: {pathway_sites}")
 
         # Create figure
         plt.figure(figsize=(12, 10))
@@ -679,7 +674,7 @@ class AllosticHeadAnalyzer:
                     label.set_color('red')
                     label.set_fontweight('bold')
                 elif val in orthosteric_sites:
-                    label.set_color('green')
+                    label.set_color('lime')
                     label.set_fontweight('bold')  
                 elif val in pathway_sites:
                     label.set_color('goldenrod')

@@ -65,6 +65,7 @@ Date: February 18, 2025
 
 import os
 import torch
+from Bio.Data import IUPACData
 from allosteric_analyzer import AllosticHeadAnalyzer
 
 def main():
@@ -72,7 +73,16 @@ def main():
     sequence = "MPIMGSSVYITVELAIAVLAILGNVLVCWAVWLNSNLQNVTNYFVVSAAAADILVGVLAIPFAIAISTGFCAACHGCLFIACFVLVLTASSIFSLLAIAIDRYIAIRIPLRYNGLVTGTRAKGIIAICWVLSFAIGLTPMLGWNNCGQPKEGKAHSQGCGEGQVACLFEDVVPMNYMVYFNFFACVLVPLLLMLGVYLRIFLAARRQLKQMESQPLPGERARSTLQKEVHAAKSLAIIVGLFALCWLPLHIINCFTFFCPDCSHAPLWLMYLAIVLSHTNSVVNPFIYAYRIREFRQTFRKIIRSHVLRQQEPFKAAAAENLYFQ"
     allosteric_sites = [168, 169, 253, 277, 278]
     orthosteric_sites = [102, 110, 227, 231, 235] # Orthosteric sites for analysis predicted with a Protein Contact Network.
-    pathway_sites = [171, 229, 234, 237, 257] # Pathway sites for analysis predicted with a Protein Contact Network.
+    pathway_sites = [55] # Pathway sites for analysis predicted with a Protein Contact Network.
+    pathway_sites_3l = []
+    one_to_three = IUPACData.protein_letters_1to3
+    for i in pathway_sites:
+        pathway_sites_3l.append(one_to_three[f"{sequence[i-1]}"])
+
+    print("=" * 50)
+    print(f"The allosteric pathway residues are: ")
+    for idx, site in enumerate(pathway_sites):
+        print(pathway_sites_3l[idx],site)
     
     # Initialize analyzer
     analyzer = AllosticHeadAnalyzer(threshold=0.3)
