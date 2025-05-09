@@ -74,7 +74,7 @@ def main():
     sequence = "MPIMGSSVYITVELAIAVLAILGNVLVCWAVWLNSNLQNVTNYFVVSAAAADILVGVLAIPFAIAISTGFCAACHGCLFIACFVLVLTASSIFSLLAIAIDRYIAIRIPLRYNGLVTGTRAKGIIAICWVLSFAIGLTPMLGWNNCGQPKEGKAHSQGCGEGQVACLFEDVVPMNYMVYFNFFACVLVPLLLMLGVYLRIFLAARRQLKQMESQPLPGERARSTLQKEVHAAKSLAIIVGLFALCWLPLHIINCFTFFCPDCSHAPLWLMYLAIVLSHTNSVVNPFIYAYRIREFRQTFRKIIRSHVLRQQEPFKAAAAENLYFQ"
     allosteric_sites = [168, 169, 253, 277, 278]
     orthosteric_sites = [102, 110, 227, 231, 235] # Orthosteric sites for analysis predicted with a Protein Contact Network.
-    pathway_sites = [55, 51, 94, 98] # Pathway sites for analysis predicted with a Protein Contact Network.
+    pathway_sites = [] # Pathway sites for analysis predicted with a Protein Contact Network.
     pathway_sites_3l = []
     one_to_three = IUPACData.protein_letters_1to3
     for i in pathway_sites:
@@ -117,29 +117,28 @@ def main():
     
     # Get attention maps
     attention_maps = analyzer.get_attention_maps(sequence)
-    print(attention_maps)
 
     # Get the mean of the attention maps of the sensitive heads
-    sensitive_heads_mean = []
-    for head_idx in sensitive_heads:
-        sensitive_heads_mean.append(attention_maps[0, 0, head_idx].mean().item())
-    sensitive_attention_maps_mean = np.mean(sensitive_heads_mean)
+    # sensitive_heads_mean = []
+    # for head_idx in sensitive_heads:
+    #     sensitive_heads_mean.append(attention_maps[0, 0, head_idx].mean().item())
+    # sensitive_attention_maps_mean = np.mean(sensitive_heads_mean)
 
     # Visualize and analyze each sensitive head
-
-    analyzer.visualize_average_head_attention(
-            attention_maps=attention_maps,
-            impact_scores=impact_scores,
-            snr_values=snr_values,
-            allosteric_sites=allosteric_sites,
-            orthosteric_sites=orthosteric_sites,
-            pathway_sites=pathway_sites,
-            sequence=sequence,
-            layer_idx=15
-    )
+    for layer_idx in np.arange(0, 33):
+        analyzer.visualize_average_head_attention(
+                attention_maps=attention_maps,
+                impact_scores=impact_scores,
+                snr_values=snr_values,
+                allosteric_sites=allosteric_sites,
+                orthosteric_sites=orthosteric_sites,
+                pathway_sites=pathway_sites,
+                sequence=sequence,
+                layer_idx=layer_idx
+        )
 
     # for head_idx in sensitive_heads:
-    #     analyzer.visualize_average_head_attention(
+    #     analyzer.visualize_head_attention(
     #              attention_maps=sensitive_attention_maps_mean,
     #              impact_scores=impact_scores,
     #              snr_values=snr_values,

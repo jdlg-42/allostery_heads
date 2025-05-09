@@ -723,11 +723,16 @@ class AllosticHeadAnalyzer:
         # 4. Visualizar mapa de atención promedio
         seq_len = len(sequence)
         tick_spacing = max(1, seq_len // 50)
-        default_ticks = set(range(0, seq_len, tick_spacing))
-        highlight_ticks = set(allosteric_sites + orthosteric_sites + pathway_sites) | default_ticks
-
-        xticks = [str(i) if i in highlight_ticks else '' for i in range(seq_len)]
-        yticks = [str(i) if i in highlight_ticks else '' for i in range(seq_len)]
+        default_ticks = set(i + 1 for i in range(seq_len) if i % tick_spacing == 0)
+        highlight_ticks = default_ticks.union(allosteric_sites).union(orthosteric_sites).union(pathway_sites)
+        xticks = [
+            f"{i}({sequence[i-1]})" if i in highlight_ticks else ''
+            for i in range(1, seq_len + 1)
+        ]
+        yticks = [
+            f"{i}({sequence[i-1]})" if i in highlight_ticks else ''
+            for i in range(1, seq_len + 1)
+        ]
 
         plt.figure(figsize=(12, 10))
         ax = sns.heatmap(average_attention, cmap='viridis', xticklabels=xticks, yticklabels=yticks)
