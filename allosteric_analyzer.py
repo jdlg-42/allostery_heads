@@ -612,9 +612,14 @@ class AllosticHeadAnalyzer:
 
         default_ticks = set(i + 1 for i in range(seq_len) if i % tick_spacing == 0)
         highlight_ticks = default_ticks.union(allosteric_sites).union(orthosteric_sites).union(pathway_sites)
-        xticks = [str(i) if i in highlight_ticks else '' for i in range(1, seq_len + 1)]
-        yticks = [str(i) if i in highlight_ticks else '' for i in range(1, seq_len + 1)]
-
+        xticks = [
+            f"{i}({sequence[i-1]})" if i in highlight_ticks else ''
+            for i in range(1, seq_len + 1)
+        ]
+        yticks = [
+            f"{i}({sequence[i-1]})" if i in highlight_ticks else ''
+            for i in range(1, seq_len + 1)
+        ]
 
         ax = sns.heatmap(
             attention_2d,
@@ -682,10 +687,91 @@ class AllosticHeadAnalyzer:
             except ValueError:
                 continue
 
-
         plt.title(f'Attention Map - Head {head_idx}')
         plt.xlabel('Position j (attended to)')
         plt.ylabel('Position i (attending from)')
+        plt.show()
+
+    def visualize_average_head_attention(self, attention_maps: torch.Tensor, impact_scores: list, snr_values: list, allosteric_sites: list, 
+                                         orthosteric_sites: list, pathway_sites: list,  sequence: str, layer_idx: int = 0) -> None:
+        """
+        Visualiza el mapa de atención promedio de las cabezas sensibles en una capa específica.
+        """
+
+        # 1. Seleccionar cabezas sensibles
+        mean_impact = np.mean(impact_scores)
+        sensitive_heads = [
+            i for i, (impact, snr) in enumerate(zip(impact_scores, snr_values))
+            if impact > mean_impact and snr > 2.0
+        ]
+        
+        if not sensitive_heads:
+            raise ValueError("No sensitive heads found with SNR > 2.0 and impact > mean.")
+
+        # 2. Preparar el tensor de atención
+        if attention_maps.dim() == 5:
+            attention_maps = attention_maps[0, layer_idx]  # [num_heads, seq_len, seq_len]
+        elif attention_maps.dim() == 4:
+            attention_maps = attention_maps[0]  # [num_heads, seq_len, seq_len]
+        elif attention_maps.dim() != 3:
+            raise ValueError("Expected attention_maps to have 3, 4, or 5 dimensions.")
+
+        # 3. Extraer y promediar las cabezas sensibles
+        selected_maps = attention_maps[sensitive_heads]  # [num_sensitive_heads, seq_len, seq_len]
+        average_attention = selected_maps.mean(dim=0).cpu().numpy()
+
+        # 4. Visualizar mapa de atención promedio
+        seq_len = len(sequence)
+        tick_spacing = max(1, seq_len // 50)
+        default_ticks = set(range(0, seq_len, tick_spacing))
+        highlight_ticks = set(allosteric_sites + orthosteric_sites + pathway_sites) | default_ticks
+
+        xticks = [str(i) if i in highlight_ticks else '' for i in range(seq_len)]
+        yticks = [str(i) if i in highlight_ticks else '' for i in range(seq_len)]
+
+        plt.figure(figsize=(12, 10))
+        ax = sns.heatmap(average_attention, cmap='viridis', xticklabels=xticks, yticklabels=yticks)
+        ax.set_title(f'Average Attention Map from Sensitive Heads (Layer {layer_idx})')
+        ax.set_xlabel('Residue j (Attended To)')
+        ax.set_ylabel('Residue i (Attending From)')
+
+        # 5. Añadir líneas punteadas para sitios clave
+        for site in allosteric_sites:
+            plt.axhline(y=site-0.5, color='red', linestyle='--', linewidth=0.7)
+            plt.axvline(x=site-0.5, color='red', linestyle='--', linewidth=0.7)
+        for site in orthosteric_sites:
+            plt.axhline(y=site-0.5, color='lime', linestyle='--', linewidth=0.7)
+            plt.axvline(x=site-0.5, color='lime', linestyle='--', linewidth=0.7)
+        for site in pathway_sites:
+            plt.axhline(y=site-0.5, color='goldenrod', linestyle='--', linewidth=0.7)
+            plt.axvline(x=site-0.5, color='goldenrod', linestyle='--', linewidth=0.7)
+
+        # 6. Colorear etiquetas de los ejes
+        for label in ax.get_xticklabels():
+            idx = int(label.get_text()) if label.get_text().isdigit() else -1
+            if idx in allosteric_sites:
+                label.set_color('red')
+                label.set_fontweight('bold')
+            elif idx in orthosteric_sites:
+                label.set_color('lime')
+                label.set_fontweight('bold')
+            elif idx in pathway_sites:
+                label.set_color('goldenrod')
+                label.set_fontweight('bold')
+
+        for label in ax.get_yticklabels():
+            idx = int(label.get_text()) if label.get_text().isdigit() else -1
+            if idx in allosteric_sites:
+                label.set_color('red')
+                label.set_fontweight('bold')
+            elif idx in orthosteric_sites:
+                label.set_color('lime')
+                label.set_fontweight('bold')
+            elif idx in pathway_sites:
+                label.set_color('goldenrod')
+                label.set_fontweight('bold')
+
+        plt.tight_layout()
         plt.show()
 
     def analyze_head_connections(self, head_idx: int, attention_maps: torch.Tensor, 
