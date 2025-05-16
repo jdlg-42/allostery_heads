@@ -621,11 +621,27 @@ class AllosticHeadAnalyzer:
             for i in range(1, seq_len + 1)
         ]
 
+        # Calcular el percentil
+        threshold_annot = np.percentile(attention_2d, 98)
+
+        # Crear matriz de anotaciones vacía
+        annot = np.full_like(attention_2d, '', dtype=object)
+
+        # Rellenar solo donde la atención supera el percentil escogido
+        for i in range(seq_len):
+            for j in range(seq_len):
+                # Comprobar si el residuo atendido (j) está en allosteric_sites y si el valor de atención es alto
+                if attention_2d[i, j] >= threshold_annot and (j + 1) in allosteric_sites:  # Usamos j + 1 porque allosteric_sites usa 1-based indexing
+                    # Solo asignamos formato si el valor es un número
+                    annot[i, j] = f"{attention_2d[i, j]:.4f}"
         ax = sns.heatmap(
             attention_2d,
             cmap='viridis',
             xticklabels=xticks,
-            yticklabels=yticks
+            yticklabels=yticks,
+            annot=annot,  # Añade los valores de atención
+            fmt="",   # Formato con 2 decimales
+            annot_kws={"size": 7}
         )
         
         # Highlight allosteric sites
@@ -687,7 +703,7 @@ class AllosticHeadAnalyzer:
             except ValueError:
                 continue
 
-        plt.title(f'Attention Map - Head {head_idx}')
+        plt.title(f'Attention Map - Layer {layer_idx}, Head {head_idx}')
         plt.xlabel('Position j (attended to)')
         plt.ylabel('Position i (attending from)')
         plt.show()
