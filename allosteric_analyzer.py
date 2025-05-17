@@ -77,6 +77,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 from typing import List
+from scipy.stats import ttest_1samp
 
 class AllosticHeadAnalyzer:
     def __init__(self, threshold: float = 0.3, model_name: str = "esm2_t33_650M_UR50D"):
@@ -241,69 +242,139 @@ class AllosticHeadAnalyzer:
         
         return torch.tensor(impacts), torch.tensor(snrs)
 
-    def compute_allosteric_impact(self, attention_maps: List[torch.Tensor], allosteric_sites: List[int], n_random_trials: int = 1000) -> Tuple[torch.Tensor, torch.Tensor]:
+    def compute_allosteric_impact(self, attention_maps: torch.Tensor, allosteric_sites: List[int], n_random_trials: int = 1000) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Compute allosteric impact scores with proper random baseline, excluding allosteric sites from random selection
-        
+        Compute allosteric impact scores with proper random baseline,
+        excluding allosteric sites from random selection.
+
         Args:
-            attention_maps: List of attention tensors from each layer
-            allosteric_sites: List of allosteric site indices (1-based indexing)
-            n_random_trials: Number of random samples to generate baseline
-            
+            attention_maps: Tensor of shape [1, num_layers, num_heads, seq_len, seq_len]
+            allosteric_sites: List of 1-based indices
+            n_random_trials: Number of random samples for baseline
+
         Returns:
-            Tuple of (allosteric_impacts, snr_values)
+            Tuple of (impact scores, snr values), both of shape [num_layers, num_heads]
         """
-        allo_sites = [site - 1 for site in allosteric_sites]
+        # Remove batch dimension
+        attention_maps = attention_maps[0]  # shape: [num_layers, num_heads, seq_len, seq_len]
+
+        allo_sites = [site - 1 for site in allosteric_sites]  # Convert to 0-based indexing
         n_allo_sites = len(allo_sites)
+        num_layers, num_heads, seq_len, _ = attention_maps.shape
+
         impacts = []
         snrs = []
-        
-        for layer_attention in attention_maps:
+
+        for layer_idx in range(num_layers):
+            layer_attention = attention_maps[layer_idx]  # [num_heads, seq_len, seq_len]
             layer_impacts = []
             layer_snrs = []
-            
-            if layer_attention.dim() == 4:
-                layer_attention = layer_attention.squeeze(0)
-            
-            for head in range(layer_attention.size(1)):
-                attention = layer_attention[:, head]
+
+            for head_idx in range(num_heads):
+                attention = layer_attention[head_idx]  # [seq_len, seq_len]
                 mask = attention > self.threshold
-                seq_len = attention.size(0)
-                
-                # Calculate actual attention to allosteric sites
-                w_allo = 0
-                for site in allo_sites:
-                    w_allo += torch.sum(attention[:, site][mask[:, site]]).item()
-                
-                # Create array of non-allosteric positions for random sampling
+
+                # Compute attention to allosteric sites
+                w_allo = sum(
+                    torch.sum(attention[:, site][mask[:, site]]).item()
+                    for site in allo_sites
+                )
+
+                # Create array of non-allosteric positions
                 non_allo_positions = np.array([i for i in range(seq_len) if i not in allo_sites])
-                
-                # Calculate random baseline with same number of sites
+
+                # Random baseline
                 random_w_values = []
                 for _ in range(n_random_trials):
-                    # Sample from non-allosteric positions only
                     random_sites = np.random.choice(non_allo_positions, size=n_allo_sites, replace=False)
-                    random_w = 0
-                    for site in random_sites:
-                        random_w += torch.sum(attention[:, site][mask[:, site]]).item()
+                    random_w = sum(
+                        torch.sum(attention[:, site][mask[:, site]]).item()
+                        for site in random_sites
+                    )
                     random_w_values.append(random_w)
-                
-                # Calculate mean and std of random baseline
+
                 expected_random = np.mean(random_w_values)
                 random_std = np.std(random_w_values)
-                
-                # Calculate impact and SNR
+
                 impact = w_allo / expected_random if expected_random > 0 else 0
                 snr = (w_allo - expected_random) / (random_std + 1e-10)
-                
+
                 layer_impacts.append(impact)
                 layer_snrs.append(snr)
-                
+
             impacts.append(layer_impacts)
             snrs.append(layer_snrs)
-        
+
         return torch.tensor(impacts), torch.tensor(snrs)
-    
+
+    def compute_allosteric_impact_with_significance(
+        self,
+        attention_maps: torch.Tensor,
+        allosteric_sites: List[int],
+        n_random_trials: int = 1000
+        ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Compute allosteric impact scores and perform statistical significance testing
+        using a one-sample t-test.
+
+        Returns:
+            impacts: [num_layers, num_heads]
+            snrs: [num_layers, num_heads]
+            p_values: [num_layers, num_heads] from t-test
+        """
+        attention_maps = attention_maps[0]  # Remove batch
+        allo_sites = [site - 1 for site in allosteric_sites]
+        n_allo_sites = len(allo_sites)
+        num_layers, num_heads, seq_len, _ = attention_maps.shape
+
+        impacts, snrs, pvals = [], [], []
+
+        for layer_idx in range(num_layers):
+            layer_impacts, layer_snrs, layer_pvals = [], [], []
+            for head_idx in range(num_heads):
+                attention = attention_maps[layer_idx, head_idx]  # [seq_len, seq_len]
+                mask = attention > self.threshold
+
+                # Atención a sitios alostéricos
+                w_allo = sum(
+                    torch.sum(attention[:, site][mask[:, site]]).item()
+                    for site in allo_sites
+                )
+
+                # Baseline aleatorio
+                non_allo_positions = np.array([i for i in range(seq_len) if i not in allo_sites])
+                random_w_values = []
+                for _ in range(n_random_trials):
+                    random_sites = np.random.choice(non_allo_positions, size=n_allo_sites, replace=False)
+                    w_random = sum(
+                        torch.sum(attention[:, site][mask[:, site]]).item()
+                        for site in random_sites
+                    )
+                    random_w_values.append(w_random)
+
+                expected_random = np.mean(random_w_values)
+                std_random = np.std(random_w_values)
+
+                impact = w_allo / expected_random if expected_random > 0 else 0
+                snr = (w_allo - expected_random) / (std_random + 1e-10)
+
+                # t-test: Is w_allo significantly > mean(random)?
+                t_stat, p_value = ttest_1samp(random_w_values, w_allo, alternative='less')
+
+                layer_impacts.append(impact)
+                layer_snrs.append(snr)
+                layer_pvals.append(p_value)
+
+            impacts.append(layer_impacts)
+            snrs.append(layer_snrs)
+            pvals.append(layer_pvals)
+
+        return (
+            torch.tensor(impacts),   # shape: [num_layers, num_heads]
+            torch.tensor(snrs),
+            torch.tensor(pvals)
+        )
+ 
     def analyze_protein(
         self,
         sequence: str,
@@ -320,11 +391,12 @@ class AllosticHeadAnalyzer:
             Dictionary with impact scores and SNR values
         """
         attention_maps = self.get_attention_maps(sequence)
-        impacts, snrs = self.compute_allosteric_impact(attention_maps, allosteric_sites)
+        impacts, snrs, p_values = self.compute_allosteric_impact_with_significance(attention_maps, allosteric_sites)
         
         return {
             "impacts": impacts,
-            "snrs": snrs
+            "snrs": snrs,
+            "p_values": p_values
         }
     
     def analyze_dataset(

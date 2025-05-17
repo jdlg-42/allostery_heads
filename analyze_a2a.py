@@ -4,10 +4,11 @@ import numpy as np
 import csv
 from Bio.Data import IUPACData
 from allosteric_analyzer import AllosticHeadAnalyzer
+from scipy.stats import ttest_1samp
 
 def main():
     # Adenosine A2A receptor 3VG9
-    sequence = "MPIMGSSVYITVELAIAVLAILGNVLVCWAVWLNSNLQNVTNYFVVSAAAADILVGVLAIPFAIAISTGFCAACHGCLFIACFVLVLTASSIFSLLAIAIDRYIAIRIPLRYNGLVTGTRAKGIIAICWVLSFAIGLTPMLGWNNCGQPKEGKAHSQGCGEGQVACLFEDVVPMNYMVYFNFFACVLVPLLLMLGVYLRIFLAARRQLKQMESQPLPGERARSTLQKEVHAAKSLAIIVGLFALCWLPLHIINCFTFFCPDCSHAPLWLMYLAIVLSHTNSVVNPFIYAYRIREFRQTFRKIIRSHVLRQQEPFKAAAAENLYFQ"
+    sequence = "MPIMGSSVYITVELAIAVLAILGNVLVCWAVWLNSNLQNVTNYFVVSLAAADIAVGVLAIPFAITISTGFCAACHGCLFIACFVLVLTQSSIFSLLAIAIDRYIAIRIPLRYNGLVTGTRAKGIIAICWVLSFAIGLTPMLGWNNCGQPKEGKNHSQGCGEGQVACLFEDVVPMNYMVYFNFFACVLVPLLLMLGVYLRIFLAARRQLKQMESQPLPGERARSTLQKEVHAAKSLAIIVGLFALCWLPLHIINCFTFFCPDCSHAPLWLMYLAIVLSHTNSVVNPFIYAYRIREFRQTFRKIIRSHVLRQQEPFKAAGTSARVLAAHGSDGEQVSLRLNGHPPGVWANGSAPHPERRPNGYALGLVSGGSAQESQGNTGLPDVELLSHELKGVCPEPPGLDDPLAQDGAGVS"
     allosteric_res = [168, 169, 253, 277, 278]
     orthosteric_res = [] 
     pathway_res = []
@@ -30,6 +31,7 @@ def main():
 
     impact_scores_tensor = results["impacts"]
     snr_values_tensor = results["snrs"]
+    p_values_tensor = results["p_values"]
 
     assert impact_scores_tensor.ndim == 2
     assert snr_values_tensor.ndim == 2
@@ -52,18 +54,24 @@ def main():
     for layer, head, impact, snr in head_stats:
         print(f"{layer:5d} | {head:4d} | {impact:11.3f} | {snr:6.2f}")
 
+    # Apply t-test for significance based on null hypothesis
+    impacts = np.array([stat[2] for stat in head_stats])
+    t_stats = []
+    for layer, head, impact, snr in head_stats:
+        t_stat, p_val = ttest_1samp(impacts, impact, alternative='less')
+        t_stats.append((layer, head, impact, snr, p_val))
+
     mean_impact = np.mean([stat[2] for stat in head_stats])
     mean_snr = np.mean([stat[3] for stat in head_stats])
 
     sensitive_heads = [
-        (layer, head) for (layer, head, impact, snr) in head_stats
-        if impact > mean_impact and snr > 2.0
+    (layer, head) for (layer, head, impact, snr, p_val) in t_stats
+    if p_val < 0.01 and snr > 2.0
     ]
 
     print(f"\nMost sensitive heads to allosteric sites {allosteric_res}:")
-    print(f"(Impact > {mean_impact:.3f} and SNR > 2.0)")
+    print(f"(p < 0.01 and SNR > 2.0)")
     print(f"(Layer, Head) pairs: {sensitive_heads}")
-
     # Get attention maps
     attention_maps = analyzer.get_attention_maps(sequence)  # [1, layers, heads, seq_len, seq_len]
 
@@ -89,16 +97,16 @@ def main():
     print(f"Saved attention values towards allosteric residues to {csv_file}")
 
     # Visualize each selected head
-    for layer_idx, head_idx in sensitive_heads:
-        analyzer.visualize_head_attention(
-            attention_maps=attention_maps,
-            allosteric_sites=allosteric_res,
-            orthosteric_sites=orthosteric_res,
-            pathway_sites=pathway_res,
-            sequence=sequence,
-            layer_idx=layer_idx,
-            head_idx=head_idx
-        )
+    # for layer_idx, head_idx in sensitive_heads:
+    #     analyzer.visualize_head_attention(
+    #         attention_maps=attention_maps,
+    #         allosteric_sites=allosteric_res,
+    #         orthosteric_sites=orthosteric_res,
+    #         pathway_sites=pathway_res,
+    #         sequence=sequence,
+    #         layer_idx=layer_idx,
+    #         head_idx=head_idx
+    #     )
 
     # Save sensitive head data
     head_info = {
