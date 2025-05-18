@@ -780,21 +780,27 @@ class AllosticHeadAnalyzer:
         plt.ylabel('Position i (attending from)')
         plt.show()
 
-    def visualize_average_head_attention(self, attention_maps: torch.Tensor, impact_scores: list, snr_values: list, allosteric_sites: list, 
-                                         orthosteric_sites: list, pathway_sites: list,  sequence: str, layer_idx: int = 0) -> None:
+    def visualize_average_head_attention(self, attention_maps: torch.Tensor, impact_scores: list, snr_values: list, p_values: list,
+                                     allosteric_sites: list, orthosteric_sites: list, pathway_sites: list,
+                                     sequence: str, layer_idx: int = 0, cmap = "viridis") -> None:
         """
-        Visualiza el mapa de atención promedio de las cabezas sensibles en una capa específica.
+        Visualiza el mapa de atención promedio de las cabezas sensibles en una capa específica,
+        basado en impact > mean, SNR > 2.0 y p_value < 0.01
         """
 
-        # 1. Seleccionar cabezas sensibles
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+
+        # 1. Seleccionar cabezas sensibles con los 3 criterios
         mean_impact = np.mean(impact_scores)
         sensitive_heads = [
-            i for i, (impact, snr) in enumerate(zip(impact_scores, snr_values))
-            if impact > mean_impact and snr > 2.0
+            i for i, (impact, snr, pval) in enumerate(zip(impact_scores, snr_values, p_values))
+            if snr.item() > 2.0 and pval < 0.01
         ]
-        
+
         if not sensitive_heads:
-            raise ValueError("No sensitive heads found with SNR > 2.0 and impact > mean.")
+            print(f"[Layer {layer_idx}] No sensitive heads found (impact > mean, SNR > 2.0, p < 0.01)")
+            return
 
         # 2. Preparar el tensor de atención
         if attention_maps.dim() == 5:
@@ -810,7 +816,8 @@ class AllosticHeadAnalyzer:
 
         # 4. Visualizar mapa de atención promedio
         seq_len = len(sequence)
-        tick_spacing = max(1, seq_len // 50)
+        # tick_spacing = max(1, seq_len // 50)
+        tick_spacing = 50
         default_ticks = set(i + 1 for i in range(seq_len) if i % tick_spacing == 0)
         highlight_ticks = default_ticks.union(allosteric_sites).union(orthosteric_sites).union(pathway_sites)
         xticks = [
@@ -823,10 +830,10 @@ class AllosticHeadAnalyzer:
         ]
 
         plt.figure(figsize=(12, 10))
-        ax = sns.heatmap(average_attention, cmap='viridis', xticklabels=xticks, yticklabels=yticks)
-        ax.set_title(f'Average Attention Map from Sensitive Heads (Layer {layer_idx})')
-        ax.set_xlabel('Residue j (Attended To)')
-        ax.set_ylabel('Residue i (Attending From)')
+        ax = sns.heatmap(average_attention, cmap=cmap, xticklabels=xticks, yticklabels=yticks)
+        ax.set_title(f'Mapa de atención promedio de las cabezas alostéricamente atentas.')
+        ax.set_xlabel('Residuo j (Atento)')
+        ax.set_ylabel('Residuo i (Atendido)')
 
         # 5. Añadir líneas punteadas para sitios clave
         for site in allosteric_sites:
@@ -841,7 +848,7 @@ class AllosticHeadAnalyzer:
 
         # 6. Colorear etiquetas de los ejes
         for label in ax.get_xticklabels():
-            idx = int(label.get_text()) if label.get_text().isdigit() else -1
+            idx = int(label.get_text().split('(')[0]) if '(' in label.get_text() else -1
             if idx in allosteric_sites:
                 label.set_color('red')
                 label.set_fontweight('bold')
@@ -853,7 +860,7 @@ class AllosticHeadAnalyzer:
                 label.set_fontweight('bold')
 
         for label in ax.get_yticklabels():
-            idx = int(label.get_text()) if label.get_text().isdigit() else -1
+            idx = int(label.get_text().split('(')[0]) if '(' in label.get_text() else -1
             if idx in allosteric_sites:
                 label.set_color('red')
                 label.set_fontweight('bold')
@@ -866,6 +873,7 @@ class AllosticHeadAnalyzer:
 
         plt.tight_layout()
         plt.show()
+
 
     def analyze_head_connections(self, head_idx: int, attention_maps: torch.Tensor, 
                                sequence: str) -> None:

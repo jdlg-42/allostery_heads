@@ -10,7 +10,7 @@ def main():
     # Adenosine A2A receptor 3VG9
     sequence = "MPIMGSSVYITVELAIAVLAILGNVLVCWAVWLNSNLQNVTNYFVVSLAAADIAVGVLAIPFAITISTGFCAACHGCLFIACFVLVLTQSSIFSLLAIAIDRYIAIRIPLRYNGLVTGTRAKGIIAICWVLSFAIGLTPMLGWNNCGQPKEGKNHSQGCGEGQVACLFEDVVPMNYMVYFNFFACVLVPLLLMLGVYLRIFLAARRQLKQMESQPLPGERARSTLQKEVHAAKSLAIIVGLFALCWLPLHIINCFTFFCPDCSHAPLWLMYLAIVLSHTNSVVNPFIYAYRIREFRQTFRKIIRSHVLRQQEPFKAAGTSARVLAAHGSDGEQVSLRLNGHPPGVWANGSAPHPERRPNGYALGLVSGGSAQESQGNTGLPDVELLSHELKGVCPEPPGLDDPLAQDGAGVS"
     allosteric_res = [168, 169, 253, 277, 278]
-    orthosteric_res = [] 
+    orthosteric_res = [] # se puede rellenar para representar residuos del sitio ortosterico
     pathway_res = []
 
     allosteric_res_3l = []
@@ -97,17 +97,27 @@ def main():
     print(f"Saved attention values towards allosteric residues to {csv_file}")
 
     # Visualize each selected head
-    # for layer_idx, head_idx in sensitive_heads:
-    #     analyzer.visualize_head_attention(
-    #         attention_maps=attention_maps,
-    #         allosteric_sites=allosteric_res,
-    #         orthosteric_sites=orthosteric_res,
-    #         pathway_sites=pathway_res,
-    #         sequence=sequence,
-    #         layer_idx=layer_idx,
-    #         head_idx=head_idx
-    #     )
+ # === NEW: Visualize mean of attention maps across sensitive heads ===
+    if sensitive_heads:
+        attention_stack = torch.stack([attention_maps[0, l, h] for (l, h) in sensitive_heads])  # [N, seq_len, seq_len]
+        mean_attention_map = torch.mean(attention_stack, dim=0)  # [seq_len, seq_len]
 
+        # Preparamos listas de impacto, SNR y p-valores correspondientes a las cabezas sensibles
+        sensitive_impact_scores = [impact_scores_tensor[l][h] for (l, h) in sensitive_heads]
+        sensitive_snr_values = [snr_values_tensor[l][h] for (l, h) in sensitive_heads]
+        sensitive_p_values = [p_values_tensor[l][h] for (l, h) in sensitive_heads]  # No usados en visualización, pero pueden pasarse si se desea filtrar por p más adelante
+
+        analyzer.visualize_average_head_attention(
+            attention_maps=attention_maps,
+            impact_scores=sensitive_impact_scores,
+            snr_values=sensitive_snr_values,
+            allosteric_sites=allosteric_res,
+            orthosteric_sites=orthosteric_res,
+            pathway_sites=pathway_res,
+            sequence=sequence,
+            p_values=sensitive_p_values,
+            cmap = "jet" # default: "viridis"
+        )
     # Save sensitive head data
     head_info = {
         'sensitive_heads': sensitive_heads,
