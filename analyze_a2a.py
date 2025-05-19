@@ -116,7 +116,7 @@ def main():
             pathway_sites=pathway_res,
             sequence=sequence,
             p_values=sensitive_p_values,
-            cmap = "jet" # default: "viridis"
+            cmap = "viridis" # default: "viridis"
         )
     # Save sensitive head data
     head_info = {

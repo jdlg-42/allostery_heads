@@ -114,7 +114,8 @@ def main():
             orthosteric_sites=orthosteric_res,
             pathway_sites=pathway_res,
             sequence=sequence,
-            p_values=sensitive_p_values
+            p_values=sensitive_p_values,
+            cmap='viridis',
         )
 
     # Save sensitive head data

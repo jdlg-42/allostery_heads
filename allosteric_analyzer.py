@@ -679,17 +679,19 @@ class AllosticHeadAnalyzer:
         
         # Create a heatmap of the attention map.
             ## Use a dynamic tick spacing to avoid crowding in short sequences
-        seq_len = attention_2d.shape[0]
-        tick_spacing = max(1, seq_len // 50) # Dynamic tick spacing
-
-        default_ticks = set(i + 1 for i in range(seq_len) if i % tick_spacing == 0)
+        seq_len = len(sequence)
+        tick_spacing = 50
+        default_ticks = set(i + 1 for i in range(seq_len) if (i + 1) % tick_spacing == 0)
         highlight_ticks = default_ticks.union(allosteric_sites).union(orthosteric_sites).union(pathway_sites)
+
         xticks = [
-            f"{i}({sequence[i-1]})" if i in highlight_ticks else ''
+            f"{i}({sequence[i-1]})" if i in highlight_ticks and i <= seq_len else ''
             for i in range(1, seq_len + 1)
         ]
+
+        highlight_ticks_y = default_ticks.union(orthosteric_sites).union(pathway_sites)
         yticks = [
-            f"{i}({sequence[i-1]})" if i in highlight_ticks else ''
+            f"{i}({sequence[i-1]})" if i in highlight_ticks_y and i <= seq_len else ''
             for i in range(1, seq_len + 1)
         ]
 
@@ -759,7 +761,7 @@ class AllosticHeadAnalyzer:
                 
             except ValueError:
                 continue
-
+        
         for label in ax.get_yticklabels():
             try:
                 val = int(label.get_text())
@@ -824,8 +826,10 @@ class AllosticHeadAnalyzer:
             f"{i}({sequence[i-1]})" if i in highlight_ticks else ''
             for i in range(1, seq_len + 1)
         ]
+        
+        highlight_ticks_y = default_ticks.union(orthosteric_sites).union(pathway_sites)
         yticks = [
-            f"{i}({sequence[i-1]})" if i in highlight_ticks else ''
+            f"{i}({sequence[i-1]})" if i in highlight_ticks_y else ''
             for i in range(1, seq_len + 1)
         ]
 
@@ -837,16 +841,17 @@ class AllosticHeadAnalyzer:
 
         # 5. Añadir líneas punteadas para sitios clave
         for site in allosteric_sites:
-            plt.axhline(y=site-0.5, color='red', linestyle='--', linewidth=0.7)
+            # plt.axhline(x=site-0.5, color='red', linestyle='--', linewidth=0.7)
             plt.axvline(x=site-0.5, color='red', linestyle='--', linewidth=0.7)
         for site in orthosteric_sites:
-            plt.axhline(y=site-0.5, color='lime', linestyle='--', linewidth=0.7)
-            plt.axvline(x=site-0.5, color='lime', linestyle='--', linewidth=0.7)
+            plt.axhline(y=site-0.5, color='lime', linestyle='--', linewidth=0.3)
+            # plt.axvline(x=site-0.5, color='lime', linestyle='--', linewidth=0.7)
         for site in pathway_sites:
             plt.axhline(y=site-0.5, color='goldenrod', linestyle='--', linewidth=0.7)
-            plt.axvline(x=site-0.5, color='goldenrod', linestyle='--', linewidth=0.7)
+            # plt.axvline(x=site-0.5, color='goldenrod', linestyle='--', linewidth=0.7)
 
         # 6. Colorear etiquetas de los ejes
+
         for label in ax.get_xticklabels():
             idx = int(label.get_text().split('(')[0]) if '(' in label.get_text() else -1
             if idx in allosteric_sites:
@@ -870,6 +875,7 @@ class AllosticHeadAnalyzer:
             elif idx in pathway_sites:
                 label.set_color('goldenrod')
                 label.set_fontweight('bold')
+        ax.set_yticklabels(ax.get_yticklabels(), rotation=00)
 
         plt.tight_layout()
         plt.show()
